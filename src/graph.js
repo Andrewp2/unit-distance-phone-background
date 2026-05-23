@@ -264,21 +264,21 @@
     const projectionIndex = construction.units.indexOf(1);
     let candidateCount = 0;
     let duplicateCount = 0;
-    let capped = false;
+    let omittedPointCount = 0;
     let candidateCapped = false;
 
     function visitCoefficient(level) {
-      if (capped || candidateCapped) {
+      if (candidateCapped) {
         return;
       }
 
       if (level === construction.rank) {
-        candidateCount += 1;
-
-        if (candidateCount > maxCandidates) {
+        if (candidateCount >= maxCandidates) {
           candidateCapped = true;
           return;
         }
+
+        candidateCount += 1;
 
         for (const value of embeddingValues) {
           if (!inOpenDisk(value, radius)) {
@@ -293,6 +293,11 @@
           return;
         }
 
+        if (points.length >= maxPoints) {
+          omittedPointCount += 1;
+          return;
+        }
+
         const point = {
           id: points.length,
           x: projected.x,
@@ -301,10 +306,6 @@
         };
         seen.set(key, point);
         points.push(point);
-
-        if (points.length >= maxPoints) {
-          capped = true;
-        }
         return;
       }
 
@@ -325,7 +326,7 @@
           embeddingValues[embeddingIndex].y -= coefficient * power.y;
         }
 
-        if (capped || candidateCapped) {
+        if (candidateCapped) {
           return;
         }
       }
@@ -333,8 +334,13 @@
 
     visitCoefficient(0);
 
+    const capped = omittedPointCount > 0;
     if (capped) {
-      warnings.push(`Point limit reached at ${maxPoints}; edges only use the visible limited set.`);
+      const countText = omittedPointCount.toLocaleString();
+      const qualifier = candidateCapped ? "at least " : "";
+      warnings.push(
+        `Point limit reached at ${maxPoints}; omitted ${qualifier}${countText} additional points. Edges only use the visible limited set.`,
+      );
     }
 
     if (candidateCapped) {
@@ -355,6 +361,9 @@
       },
       candidateCount,
       totalCandidates,
+      totalPointCount: points.length + omittedPointCount,
+      omittedPointCount,
+      omittedPointCountIsLowerBound: candidateCapped && omittedPointCount > 0,
       radius,
       maxCandidates,
       maxPoints,

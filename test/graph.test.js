@@ -37,6 +37,8 @@ assert.equal(graph.edges.length, 3588);
 assert.equal(graph.construction.generatedOrder, 12);
 assert.equal(graph.construction.rank, 4);
 assert.equal(graph.totalCandidates, 6561);
+assert.equal(graph.totalPointCount, 865);
+assert.equal(graph.omittedPointCount, 0);
 
 for (const point of graph.points) {
   assert.equal(point.coefficients.length, graph.construction.rank);
@@ -74,8 +76,11 @@ const capped = Graph.generateGraph({
 });
 
 assert.equal(capped.points.length, 100);
+assert.equal(capped.totalPointCount, 865);
+assert.equal(capped.omittedPointCount, 765);
+assert.equal(capped.omittedPointCountIsLowerBound, false);
 assert.equal(capped.capped, true);
-assert.ok(capped.warnings.some((warning) => warning.includes("Point limit")));
+assert.ok(capped.warnings.some((warning) => warning.includes("omitted 765 additional points")));
 
 const smallerBox = Graph.generateGraph({
   radius: 4,
