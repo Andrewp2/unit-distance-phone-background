@@ -9,12 +9,18 @@
 })(typeof window !== "undefined" ? window : globalThis, function createGraphApi() {
   const DEFAULTS = {
     radius: 4,
-    discriminant: 5,
     edgeTolerance: 1e-6,
     maxPoints: 2500,
   };
 
-  const MAX_COEFFICIENT_LIMIT = 240;
+  const RHO = {
+    re: 0.5,
+    im: Math.sqrt(3) / 2,
+  };
+  const CONSTRUCTION = {
+    label: "Z[zeta_12], rho = exp(pi i / 3)",
+    rho: RHO,
+  };
   const POINT_KEY_SCALE = 1e9;
 
   function finiteNumber(value, fallback) {
@@ -26,45 +32,21 @@
     return `${Math.round(x * POINT_KEY_SCALE)},${Math.round(y * POINT_KEY_SCALE)}`;
   }
 
-  function isSquareFree(value) {
-    const integer = Math.abs(Math.trunc(value));
-
-    for (let factor = 2; factor * factor <= integer; factor += 1) {
-      if (integer % (factor * factor) === 0) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  function fieldFromDiscriminant(value) {
-    const discriminant = Math.max(2, Math.round(finiteNumber(value, DEFAULTS.discriminant)));
-    const squareRoot = Math.sqrt(discriminant);
-    const omega = (1 + squareRoot) / 2;
-    const omegaConjugate = (1 - squareRoot) / 2;
-    const warnings = [];
-
-    if (discriminant % 4 !== 1 || !isSquareFree(discriminant)) {
-      warnings.push(
-        "For the current integral basis, choose squarefree D with D = 1 mod 4.",
-      );
-    }
+  function pointFromCoefficients(a, b, c, d, rho) {
+    const value = rho || RHO;
 
     return {
-      discriminant,
-      squareRoot,
-      omega,
-      omegaConjugate,
-      label: `Q(i, sqrt(${discriminant}))`,
-      warnings,
+      x: a + c * value.re - d * value.im,
+      y: b + c * value.im + d * value.re,
     };
   }
 
-  function pointFromCoefficients(a, b, c, d, omega) {
+  function alternatePointFromCoefficients(a, b, c, d, rho) {
+    const value = rho || RHO;
+
     return {
-      x: a + c * omega,
-      y: b + d * omega,
+      x: a + c * value.re + d * value.im,
+      y: -b + c * value.im - d * value.re,
     };
   }
 
@@ -100,39 +82,23 @@
     return values;
   }
 
-  function coefficientLimitForField(radius, field) {
-    const conjugateGap = Math.abs(field.omega - field.omegaConjugate);
-    const slopeLimit = (2 * radius) / conjugateGap;
-    const interceptLimit = radius + slopeLimit * Math.max(Math.abs(field.omega), Math.abs(field.omegaConjugate));
+  function integerRangeInside(lower, upper, center) {
+    return integerRangeAround(Math.floor(lower) + 1, Math.ceil(upper) - 1, center);
+  }
 
-    return Math.ceil(Math.max(slopeLimit, interceptLimit)) + 2;
+  function coefficientLimitForRadius(radius) {
+    return Math.ceil(radius / RHO.im) + 2;
   }
 
   function generateGraph(options) {
     const radius = Math.max(0.001, finiteNumber(options && options.radius, DEFAULTS.radius));
     const maxPoints = Math.max(1, Math.floor(finiteNumber(options && options.maxPoints, DEFAULTS.maxPoints)));
-    const field = fieldFromDiscriminant(options && options.discriminant);
     const edgeTolerance = Math.max(
       1e-12,
       finiteNumber(options && options.edgeTolerance, DEFAULTS.edgeTolerance),
     );
-    const warnings = [...field.warnings];
-
-    const coefficientLimit = coefficientLimitForField(radius, field);
-    if (coefficientLimit > MAX_COEFFICIENT_LIMIT) {
-      return {
-        points: [],
-        edges: [],
-        field,
-        radius,
-        maxPoints,
-        warnings: [
-          `This field/radius needs coefficient limit ${coefficientLimit}, above the browser limit ${MAX_COEFFICIENT_LIMIT}.`,
-        ],
-        duplicateCount: 0,
-        capped: false,
-      };
-    }
+    const warnings = [];
+    const coefficientLimit = coefficientLimitForRadius(radius);
 
     const points = [];
     const seen = new Map();
@@ -141,27 +107,30 @@
     let capped = false;
 
     coefficientLoop: for (const c of coefficientValues) {
-      const aMin = Math.ceil(
-        Math.max(-radius - c * field.omega, -radius - c * field.omegaConjugate),
-      );
-      const aMax = Math.floor(
-        Math.min(radius - c * field.omega, radius - c * field.omegaConjugate),
-      );
-      const aValues = integerRangeAround(aMin, aMax, -(c * (field.omega + field.omegaConjugate)) / 2);
-
       for (const d of coefficientValues) {
-        const bMin = Math.ceil(
-          Math.max(-radius - d * field.omega, -radius - d * field.omegaConjugate),
+        const aLower = Math.max(
+          -radius - c * RHO.re + d * RHO.im,
+          -radius - c * RHO.re - d * RHO.im,
         );
-        const bMax = Math.floor(
-          Math.min(radius - d * field.omega, radius - d * field.omegaConjugate),
+        const aUpper = Math.min(
+          radius - c * RHO.re + d * RHO.im,
+          radius - c * RHO.re - d * RHO.im,
         );
-        const bValues = integerRangeAround(bMin, bMax, -(d * (field.omega + field.omegaConjugate)) / 2);
+        const bLower = Math.max(
+          -radius - c * RHO.im - d * RHO.re,
+          c * RHO.im - d * RHO.re - radius,
+        );
+        const bUpper = Math.min(
+          radius - c * RHO.im - d * RHO.re,
+          c * RHO.im - d * RHO.re + radius,
+        );
+        const aValues = integerRangeInside(aLower, aUpper, -c * RHO.re);
+        const bValues = integerRangeInside(bLower, bUpper, -d * RHO.re);
 
         for (const a of aValues) {
           for (const b of bValues) {
-            const z = pointFromCoefficients(a, b, c, d, field.omega);
-            const alternate = pointFromCoefficients(a, b, c, d, field.omegaConjugate);
+            const z = pointFromCoefficients(a, b, c, d);
+            const alternate = alternatePointFromCoefficients(a, b, c, d);
 
             if (!inOpenDisk(z, radius) || !inOpenDisk(alternate, radius)) {
               continue;
@@ -205,7 +174,7 @@
     return {
       points,
       edges,
-      field,
+      construction: CONSTRUCTION,
       radius,
       maxPoints,
       warnings,
@@ -334,12 +303,14 @@
 
   return {
     DEFAULTS,
-    fieldFromDiscriminant,
+    CONSTRUCTION,
+    RHO,
     generateGraph,
     findUnitEdges,
     renderGraph,
     phonePresets,
     downloadName,
     pointFromCoefficients,
+    alternatePointFromCoefficients,
   };
 });

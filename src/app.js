@@ -9,8 +9,6 @@
     canvas: document.getElementById("wallpaperCanvas"),
     radius: document.getElementById("radiusInput"),
     maxPoints: document.getElementById("maxPointsInput"),
-    discriminant: document.getElementById("discriminantInput"),
-    fieldOutput: document.getElementById("fieldOutput"),
     pointColor: document.getElementById("pointColorInput"),
     lineColor: document.getElementById("lineColorInput"),
     backgroundColor: document.getElementById("backgroundColorInput"),
@@ -48,7 +46,6 @@
     return {
       radius: numberValue(refs.radius, 4),
       maxPoints: numberValue(refs.maxPoints, Graph.DEFAULTS.maxPoints),
-      discriminant: numberValue(refs.discriminant, Graph.DEFAULTS.discriminant),
       pointColor: refs.pointColor.value,
       lineColor: refs.lineColor.value,
       backgroundColor: refs.backgroundColor.value,
@@ -60,7 +57,7 @@
   }
 
   function graphKey(state) {
-    return [state.radius, state.maxPoints, state.discriminant]
+    return [state.radius, state.maxPoints]
       .map((value) => Number(value).toFixed(8))
       .join(":");
   }
@@ -91,11 +88,6 @@
 
   function syncZoomOutput() {
     refs.zoomOutput.textContent = `${Number(refs.zoom.value).toFixed(1)}x`;
-  }
-
-  function syncFieldOutput() {
-    const field = Graph.fieldFromDiscriminant(numberValue(refs.discriminant, Graph.DEFAULTS.discriminant));
-    refs.fieldOutput.textContent = `K = ${field.label}, omega = ${(field.omega).toFixed(6)}`;
   }
 
   function populatePresets() {
@@ -165,7 +157,7 @@
 
     Graph.renderGraph(refs.canvas, graph, state);
 
-    refs.summary.textContent = `${graph.points.length} points, ${graph.edges.length} unit edges, K = ${graph.field.label}`;
+    refs.summary.textContent = `${graph.points.length} points, ${graph.edges.length} unit edges, ${graph.construction.label}`;
     refs.warning.textContent = graph.warnings.join(" ");
   }
 
@@ -235,14 +227,8 @@
   }
 
   populatePresets();
-  syncFieldOutput();
   syncZoomOutput();
   render();
-
-  refs.discriminant.addEventListener("input", () => {
-    syncFieldOutput();
-    scheduleRender();
-  });
 
   refs.form.addEventListener("input", scheduleRender);
   refs.zoom.addEventListener("input", syncZoomOutput);
