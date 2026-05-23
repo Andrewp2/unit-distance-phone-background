@@ -402,10 +402,10 @@
 
   function phonePresets() {
     return [
-      { id: "iphone-pro", label: "iPhone Pro", width: 1179, height: 2556, checked: true },
-      { id: "iphone-pro-max", label: "iPhone Pro Max", width: 1290, height: 2796, checked: true },
+      { id: "iphone-pro", label: "iPhone Pro", width: 1179, height: 2556, checked: false },
+      { id: "iphone-pro-max", label: "iPhone Pro Max", width: 1290, height: 2796, checked: false },
       { id: "iphone-x", label: "iPhone X / 11 Pro", width: 1125, height: 2436, checked: false },
-      { id: "android-fhd", label: "Android FHD+", width: 1080, height: 2400, checked: true },
+      { id: "android-fhd", label: "Android FHD+", width: 1080, height: 2400, checked: false },
       { id: "android-qhd", label: "Android QHD+", width: 1440, height: 3200, checked: false },
       { id: "pixel-pro", label: "Pixel Pro", width: 1344, height: 2992, checked: false },
       { id: "custom", label: "Custom", width: 1080, height: 2400, checked: false, custom: true },

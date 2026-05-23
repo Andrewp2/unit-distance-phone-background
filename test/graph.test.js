@@ -100,3 +100,5 @@ const zeta8 = Graph.generateGraph({
 assert.equal(zeta8.construction.ringLabel, "Z[i, rho] = Z[zeta_8]");
 assert.ok(zeta8.points.length > 0);
 assert.ok(zeta8.edges.length > 0);
+
+assert.ok(Graph.phonePresets().every((preset) => preset.checked === false));
