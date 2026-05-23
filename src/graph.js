@@ -14,11 +14,13 @@
     coefficientMin: -4,
     coefficientMax: 4,
     edgeTolerance: 1e-6,
+    maxCandidates: 2000000,
     maxPoints: 2500,
   };
 
   const ROOT_ORDER_PRESETS = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 16, 20, 24, 30];
   const COEFFICIENT_LIMIT = 60;
+  const DISK_EPSILON = 1e-9;
   const POINT_KEY_SCALE = 1e9;
   const COMMON_TRIG_VALUES = [
     -1,
@@ -58,6 +60,30 @@
     return Math.abs(left * right) / gcd(left, right);
   }
 
+  function eulerPhi(value) {
+    let result = 0;
+
+    for (let candidate = 1; candidate <= value; candidate += 1) {
+      if (gcd(candidate, value) === 1) {
+        result += 1;
+      }
+    }
+
+    return result;
+  }
+
+  function unitsModulo(value) {
+    const units = [];
+
+    for (let candidate = 1; candidate <= value; candidate += 1) {
+      if (gcd(candidate, value) === 1) {
+        units.push(candidate);
+      }
+    }
+
+    return units;
+  }
+
   function primitiveExponents(order) {
     const safeOrder = Math.max(3, Math.round(finiteNumber(order, DEFAULTS.rootOrder)));
     const values = [];
@@ -82,6 +108,8 @@
     const generatedOrder = lcm(4, safeOrder);
     const re = snapTrig(Math.cos(angle));
     const im = snapTrig(Math.sin(angle));
+    const rank = eulerPhi(generatedOrder);
+    const units = unitsModulo(generatedOrder);
 
     return {
       order: safeOrder,
@@ -89,8 +117,10 @@
       re,
       im,
       generatedOrder,
+      rank,
+      units,
       label: `rho = zeta_${safeOrder}^${safeExponent}`,
-      ringLabel: `Z[i, rho] = Z[zeta_${generatedOrder}]`,
+      ringLabel: `Z[zeta_${generatedOrder}]`,
     };
   }
 
@@ -104,26 +134,8 @@
     return value;
   }
 
-  function pointFromCoefficients(a, b, c, d, rho) {
-    const value = rho || rootOfUnity(DEFAULTS.rootOrder, DEFAULTS.rootExponent);
-
-    return {
-      x: a + c * value.re - d * value.im,
-      y: b + c * value.im + d * value.re,
-    };
-  }
-
-  function alternatePointFromCoefficients(a, b, c, d, rho) {
-    const value = rho || rootOfUnity(DEFAULTS.rootOrder, DEFAULTS.rootExponent);
-
-    return {
-      x: a + c * value.re + d * value.im,
-      y: -b + c * value.im - d * value.re,
-    };
-  }
-
   function inOpenDisk(point, radius) {
-    return Math.hypot(point.x, point.y) < radius;
+    return point.x * point.x + point.y * point.y < radius * radius - DISK_EPSILON;
   }
 
   function integerRangeAround(minimum, maximum, center) {
@@ -148,10 +160,6 @@
 
   function clamp(value, minimum, maximum) {
     return Math.max(minimum, Math.min(maximum, value));
-  }
-
-  function integerRangeInside(lower, upper, center) {
-    return integerRangeAround(Math.floor(lower) + 1, Math.ceil(upper) - 1, center);
   }
 
   function coefficientRange(options) {
@@ -180,111 +188,147 @@
     };
   }
 
+  function complexRoot(order, exponent) {
+    const angle = (2 * Math.PI * exponent) / order;
+
+    return {
+      x: snapTrig(Math.cos(angle)),
+      y: snapTrig(Math.sin(angle)),
+    };
+  }
+
+  function precomputeEmbeddingPowers(construction) {
+    return construction.units.map((embeddingExponent) => {
+      const powers = [];
+
+      for (let basisIndex = 0; basisIndex < construction.rank; basisIndex += 1) {
+        powers.push(complexRoot(
+          construction.generatedOrder,
+          (embeddingExponent * basisIndex) % construction.generatedOrder,
+        ));
+      }
+
+      return powers;
+    });
+  }
+
+  function evaluateCoefficients(coefficients, construction, embeddingExponent) {
+    const rootOrder = construction.generatedOrder;
+    const exponent = embeddingExponent || 1;
+    let x = 0;
+    let y = 0;
+
+    for (let index = 0; index < coefficients.length; index += 1) {
+      const root = complexRoot(rootOrder, (exponent * index) % rootOrder);
+      x += coefficients[index] * root.x;
+      y += coefficients[index] * root.y;
+    }
+
+    return { x, y };
+  }
+
   function generateGraph(options) {
     const radius = Math.max(0.001, finiteNumber(options && options.radius, DEFAULTS.radius));
-    const rho = rootOfUnity(options && options.rootOrder, options && options.rootExponent);
+    const construction = rootOfUnity(options && options.rootOrder, options && options.rootExponent);
     const coefficientBox = coefficientRange(options);
+    const maxCandidates = Math.max(
+      1,
+      Math.floor(finiteNumber(options && options.maxCandidates, DEFAULTS.maxCandidates)),
+    );
     const maxPoints = Math.max(1, Math.floor(finiteNumber(options && options.maxPoints, DEFAULTS.maxPoints)));
     const edgeTolerance = Math.max(
       1e-12,
       finiteNumber(options && options.edgeTolerance, DEFAULTS.edgeTolerance),
     );
     const warnings = [...coefficientBox.warnings];
-    if (Math.abs(rho.im) < 1e-8) {
-      warnings.push("rho must be non-real for this finite four-coefficient search.");
-      return {
-        points: [],
-        edges: [],
-        construction: rho,
-        radius,
-        maxPoints,
-        warnings,
-        duplicateCount: 0,
-        capped: false,
-      };
-    }
-
-    if (rho.generatedOrder > 12) {
-      warnings.push(
-        "For generated orders above 12 this is the same four-coefficient slice, not the full ring of integers.",
-      );
-    }
+    const totalCandidates = coefficientBox.values.length ** construction.rank;
 
     const points = [];
     const seen = new Map();
     const coefficientValues = coefficientBox.values;
+    const embeddingPowers = precomputeEmbeddingPowers(construction);
+    const embeddingValues = construction.units.map(() => ({ x: 0, y: 0 }));
+    const coefficients = Array(construction.rank).fill(0);
+    const projectionIndex = construction.units.indexOf(1);
+    let candidateCount = 0;
     let duplicateCount = 0;
     let capped = false;
+    let candidateCapped = false;
 
-    coefficientLoop: for (const c of coefficientValues) {
-      for (const d of coefficientValues) {
-        const aLower = Math.max(
-          -radius - c * rho.re + d * rho.im,
-          -radius - c * rho.re - d * rho.im,
-        );
-        const aUpper = Math.min(
-          radius - c * rho.re + d * rho.im,
-          radius - c * rho.re - d * rho.im,
-        );
-        const bLower = Math.max(
-          -radius - c * rho.im - d * rho.re,
-          c * rho.im - d * rho.re - radius,
-        );
-        const bUpper = Math.min(
-          radius - c * rho.im - d * rho.re,
-          c * rho.im - d * rho.re + radius,
-        );
-        const aValues = integerRangeInside(
-          Math.max(aLower, coefficientBox.minimum - 1),
-          Math.min(aUpper, coefficientBox.maximum + 1),
-          -c * rho.re,
-        );
-        const bValues = integerRangeInside(
-          Math.max(bLower, coefficientBox.minimum - 1),
-          Math.min(bUpper, coefficientBox.maximum + 1),
-          -d * rho.re,
-        );
+    function visitCoefficient(level) {
+      if (capped || candidateCapped) {
+        return;
+      }
 
-        for (const a of aValues) {
-          for (const b of bValues) {
-            const z = pointFromCoefficients(a, b, c, d, rho);
-            const alternate = alternatePointFromCoefficients(a, b, c, d, rho);
+      if (level === construction.rank) {
+        candidateCount += 1;
 
-            if (!inOpenDisk(z, radius) || !inOpenDisk(alternate, radius)) {
-              continue;
-            }
+        if (candidateCount > maxCandidates) {
+          candidateCapped = true;
+          return;
+        }
 
-            const key = makePointKey(z.x, z.y);
-            if (seen.has(key)) {
-              duplicateCount += 1;
-              continue;
-            }
-
-            const point = {
-              id: points.length,
-              x: z.x,
-              y: z.y,
-              alternateX: alternate.x,
-              alternateY: alternate.y,
-              a,
-              b,
-              c,
-              d,
-            };
-            seen.set(key, point);
-            points.push(point);
-
-            if (points.length >= maxPoints) {
-              capped = true;
-              break coefficientLoop;
-            }
+        for (const value of embeddingValues) {
+          if (!inOpenDisk(value, radius)) {
+            return;
           }
+        }
+
+        const projected = embeddingValues[projectionIndex];
+        const key = makePointKey(projected.x, projected.y);
+        if (seen.has(key)) {
+          duplicateCount += 1;
+          return;
+        }
+
+        const point = {
+          id: points.length,
+          x: projected.x,
+          y: projected.y,
+          coefficients: coefficients.slice(),
+        };
+        seen.set(key, point);
+        points.push(point);
+
+        if (points.length >= maxPoints) {
+          capped = true;
+        }
+        return;
+      }
+
+      for (const coefficient of coefficientValues) {
+        coefficients[level] = coefficient;
+
+        for (let embeddingIndex = 0; embeddingIndex < embeddingValues.length; embeddingIndex += 1) {
+          const power = embeddingPowers[embeddingIndex][level];
+          embeddingValues[embeddingIndex].x += coefficient * power.x;
+          embeddingValues[embeddingIndex].y += coefficient * power.y;
+        }
+
+        visitCoefficient(level + 1);
+
+        for (let embeddingIndex = 0; embeddingIndex < embeddingValues.length; embeddingIndex += 1) {
+          const power = embeddingPowers[embeddingIndex][level];
+          embeddingValues[embeddingIndex].x -= coefficient * power.x;
+          embeddingValues[embeddingIndex].y -= coefficient * power.y;
+        }
+
+        if (capped || candidateCapped) {
+          return;
         }
       }
     }
 
+    visitCoefficient(0);
+
     if (capped) {
       warnings.push(`Point limit reached at ${maxPoints}; edges only use the visible limited set.`);
+    }
+
+    if (candidateCapped) {
+      warnings.push(
+        `Search stopped after ${maxCandidates.toLocaleString()} candidates out of ${totalCandidates.toLocaleString()}; reduce the coefficient range for a complete render.`,
+      );
     }
 
     const edges = findUnitEdges(points, edgeTolerance);
@@ -292,16 +336,20 @@
     return {
       points,
       edges,
-      construction: rho,
+      construction,
       coefficientRange: {
         minimum: coefficientBox.minimum,
         maximum: coefficientBox.maximum,
       },
+      candidateCount,
+      totalCandidates,
       radius,
+      maxCandidates,
       maxPoints,
       warnings,
       duplicateCount,
       capped,
+      candidateCapped,
     };
   }
 
@@ -428,6 +476,8 @@
     ROOT_ORDER_PRESETS,
     COEFFICIENT_LIMIT,
     coefficientRange,
+    eulerPhi,
+    evaluateCoefficients,
     primitiveExponents,
     rootOfUnity,
     generateGraph,
@@ -435,7 +485,5 @@
     renderGraph,
     phonePresets,
     downloadName,
-    pointFromCoefficients,
-    alternatePointFromCoefficients,
   };
 });

@@ -1,34 +1,34 @@
 # Unit Distance Wallpaper
 
-A static GitHub Pages app for generating phone wallpapers from the lattice
-`Z[zeta_12]` in the complex numbers.
+A static GitHub Pages app for generating phone wallpapers from full cyclotomic
+integer rings.
 
 ```text
 rho = exp(pi i / 3) = zeta_6
-Z[zeta_12] = Z[i, rho]
+N = lcm(4, 6) = 12
+O_K = Z[zeta_N]
 ```
 
 The plotted points come from
 
 ```text
-z = a + bi + c rho + d i rho
+x = n0 + n1 zeta_N + ... + n_{phi(N)-1} zeta_N^{phi(N)-1}
 ```
 
-with integer `a, b, c, d` and the two disk constraints:
+with integer coefficients. The app intersects the full Minkowski embedding with
+a polydisc:
 
 ```text
-|a + bi + c rho + d i rho| < R
-|a - bi + c rho - d i rho| < R
+|sigma_s(x)| < R for every s with gcd(s, N) = 1
 ```
 
 The default `R = 4`, `rho = zeta_6` construction has 865 points and 3588 unit
 edges. Every pair of points exactly one unit apart is drawn as a line, and every
 point is drawn as a dot.
 
-The root controls let you replace `rho` with primitive roots `zeta_m^k`. The
-app always plots the same four-coefficient set `a + bi + c rho + d i rho`.
-For generated orders above 12 this is a rank-four slice of `Z[i, rho]`, not the
-entire ring of integers.
+The root controls let you replace `rho` with primitive roots `zeta_m^k`. For
+each choice the app uses the full ring `Z[zeta_N]`, where `N = lcm(4, m)`, so
+the coefficient count changes with `phi(N)`.
 
 ## Use
 
@@ -37,7 +37,7 @@ Open `index.html` in a browser, or serve the folder with any static web server.
 The app lets you adjust:
 
 - graph radius
-- coefficient range for `a`, `b`, `c`, and `d`
+- coefficient range for every basis coefficient
 - primitive root of unity used for `rho`
 - maximum point count, to keep dense angle choices responsive
 - point, line, and background colors

@@ -34,22 +34,21 @@ const graph = Graph.generateGraph({
 assert.equal(graph.warnings.length, 0);
 assert.equal(graph.points.length, 865);
 assert.equal(graph.edges.length, 3588);
+assert.equal(graph.construction.generatedOrder, 12);
+assert.equal(graph.construction.rank, 4);
+assert.equal(graph.totalCandidates, 6561);
 
 for (const point of graph.points) {
-  const z = Graph.pointFromCoefficients(point.a, point.b, point.c, point.d, graph.construction);
-  const alternate = Graph.alternatePointFromCoefficients(
-    point.a,
-    point.b,
-    point.c,
-    point.d,
-    graph.construction,
-  );
-  assert.ok(Math.hypot(z.x, z.y) < graph.radius);
-  assert.ok(Math.hypot(alternate.x, alternate.y) < graph.radius);
-  assert.ok(point.a >= -4 && point.a <= 4);
-  assert.ok(point.b >= -4 && point.b <= 4);
-  assert.ok(point.c >= -4 && point.c <= 4);
-  assert.ok(point.d >= -4 && point.d <= 4);
+  assert.equal(point.coefficients.length, graph.construction.rank);
+
+  for (const coefficient of point.coefficients) {
+    assert.ok(coefficient >= -4 && coefficient <= 4);
+  }
+
+  for (const embeddingExponent of graph.construction.units) {
+    const value = Graph.evaluateCoefficients(point.coefficients, graph.construction, embeddingExponent);
+    assert.ok(Math.hypot(value.x, value.y) < graph.radius);
+  }
 }
 
 for (const edge of graph.edges) {
@@ -86,8 +85,8 @@ const smallerBox = Graph.generateGraph({
   coefficientMax: 2,
 });
 
-assert.equal(smallerBox.points.length, 469);
-assert.equal(smallerBox.edges.length, 2024);
+assert.equal(smallerBox.points.length, 461);
+assert.equal(smallerBox.edges.length, 1992);
 
 assert.deepEqual(Graph.primitiveExponents(8), [1, 3, 5, 7]);
 
@@ -97,8 +96,22 @@ const zeta8 = Graph.generateGraph({
   rootExponent: 1,
 });
 
-assert.equal(zeta8.construction.ringLabel, "Z[i, rho] = Z[zeta_8]");
+assert.equal(zeta8.construction.ringLabel, "Z[zeta_8]");
+assert.equal(zeta8.construction.rank, 4);
 assert.ok(zeta8.points.length > 0);
 assert.ok(zeta8.edges.length > 0);
+
+const zeta5 = Graph.generateGraph({
+  radius: 4,
+  rootOrder: 5,
+  rootExponent: 1,
+  coefficientMin: -1,
+  coefficientMax: 1,
+});
+
+assert.equal(zeta5.construction.ringLabel, "Z[zeta_20]");
+assert.equal(zeta5.construction.rank, 8);
+assert.equal(zeta5.totalCandidates, 6561);
+assert.ok(zeta5.points.length > 0);
 
 assert.ok(Graph.phonePresets().every((preset) => preset.checked === false));

@@ -108,7 +108,7 @@
 
   function syncConstructionOutput() {
     const rho = Graph.rootOfUnity(numberValue(refs.rootOrder, 6), numberValue(refs.rootExponent, 1));
-    refs.constructionOutput.textContent = `${rho.label}, ${rho.ringLabel}, rho = ${rho.re.toFixed(6)} ${rho.im < 0 ? "-" : "+"} ${Math.abs(rho.im).toFixed(6)}i`;
+    refs.constructionOutput.textContent = `${rho.label}, full ring ${rho.ringLabel}, rank ${rho.rank}, rho = ${rho.re.toFixed(6)} ${rho.im < 0 ? "-" : "+"} ${Math.abs(rho.im).toFixed(6)}i`;
   }
 
   function populateRootOrders() {
@@ -205,7 +205,7 @@
 
     Graph.renderGraph(refs.canvas, graph, state);
 
-    refs.summary.textContent = `${graph.points.length} points, ${graph.edges.length} unit edges, ${graph.construction.ringLabel}, coeffs ${graph.coefficientRange.minimum}..${graph.coefficientRange.maximum}`;
+    refs.summary.textContent = `${graph.points.length} points, ${graph.edges.length} unit edges, ${graph.construction.ringLabel}, rank ${graph.construction.rank}, coeffs ${graph.coefficientRange.minimum}..${graph.coefficientRange.maximum}`;
     refs.warning.textContent = graph.warnings.join(" ");
   }
 
