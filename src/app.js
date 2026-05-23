@@ -328,7 +328,7 @@
 
   refs.exportSelected.addEventListener("click", () => {
     const batch = selectedExportPresets();
-    buildExports(batch, { downloadImmediately: batch.length === 1 });
+    buildExports(batch, { downloadImmediately: true });
   });
 
   refs.clearExports.addEventListener("click", clearExports);
