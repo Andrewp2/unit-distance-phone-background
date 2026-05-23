@@ -12,6 +12,7 @@
     pRe: 0.8090169943749475,
     pIm: 0.5877852522924731,
     edgeTolerance: 1e-6,
+    maxPoints: 2500,
   };
 
   const MAX_COEFFICIENT_LIMIT = 140;
@@ -44,8 +45,37 @@
     return Math.hypot(point.x, point.y) < radius;
   }
 
+  function centeredIntegers(limit) {
+    const values = [0];
+    for (let value = 1; value <= limit; value += 1) {
+      values.push(value, -value);
+    }
+    return values;
+  }
+
+  function integerRangeAround(minimum, maximum, center) {
+    const values = [];
+    for (let value = minimum; value <= maximum; value += 1) {
+      values.push(value);
+    }
+
+    values.sort((left, right) => {
+      const leftDistance = Math.abs(left - center);
+      const rightDistance = Math.abs(right - center);
+
+      if (leftDistance === rightDistance) {
+        return left - right;
+      }
+
+      return leftDistance - rightDistance;
+    });
+
+    return values;
+  }
+
   function generateGraph(options) {
     const radius = Math.max(0.001, finiteNumber(options && options.radius, DEFAULTS.radius));
+    const maxPoints = Math.max(1, Math.floor(finiteNumber(options && options.maxPoints, DEFAULTS.maxPoints)));
     const p = {
       re: finiteNumber(options && options.pRe, DEFAULTS.pRe),
       im: finiteNumber(options && options.pIm, DEFAULTS.pIm),
@@ -62,8 +92,10 @@
         edges: [],
         p,
         radius,
+        maxPoints,
         warnings: ["Im(p) must be nonzero for this finite cut-and-project window."],
         duplicateCount: 0,
+        capped: false,
       };
     }
 
@@ -74,27 +106,33 @@
         edges: [],
         p,
         radius,
+        maxPoints,
         warnings: [
           `Im(p) is too close to zero for browser rendering; coefficient limit would be ${coefficientLimit}.`,
         ],
         duplicateCount: 0,
+        capped: false,
       };
     }
 
     const points = [];
     const seen = new Map();
+    const coefficientValues = centeredIntegers(coefficientLimit);
     let duplicateCount = 0;
+    let capped = false;
 
-    for (let c = -coefficientLimit; c <= coefficientLimit; c += 1) {
+    coefficientLoop: for (const c of coefficientValues) {
       const aMin = Math.ceil(-radius - c * p.re);
       const aMax = Math.floor(radius - c * p.re);
 
-      for (let d = -coefficientLimit; d <= coefficientLimit; d += 1) {
+      for (const d of coefficientValues) {
         const bMin = Math.ceil(-radius - d * p.re);
         const bMax = Math.floor(radius - d * p.re);
+        const aValues = integerRangeAround(aMin, aMax, -c * p.re + d * p.im);
+        const bValues = integerRangeAround(bMin, bMax, -c * p.im - d * p.re);
 
-        for (let a = aMin; a <= aMax; a += 1) {
-          for (let b = bMin; b <= bMax; b += 1) {
+        for (const a of aValues) {
+          for (const b of bValues) {
             const z = pointFromCoefficients(a, b, c, d, p);
             const alternate = alternatePointFromCoefficients(a, b, c, d, p);
 
@@ -121,9 +159,18 @@
             };
             seen.set(key, point);
             points.push(point);
+
+            if (points.length >= maxPoints) {
+              capped = true;
+              break coefficientLoop;
+            }
           }
         }
       }
+    }
+
+    if (capped) {
+      warnings.push(`Point limit reached at ${maxPoints}; edges only use the visible limited set.`);
     }
 
     const edges = findUnitEdges(points, edgeTolerance);
@@ -133,8 +180,10 @@
       edges,
       p,
       radius,
+      maxPoints,
       warnings,
       duplicateCount,
+      capped,
     };
   }
 

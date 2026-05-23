@@ -23,9 +23,10 @@ The app lets you adjust:
 
 - `p`, with a unit-circle angle control and direct `Re(p)` / `Im(p)` inputs
 - graph radius
+- maximum point count, to keep dense angle choices responsive
 - point, line, and background colors
 - dot and line pixel sizes
-- centered viewport width
+- centered viewport width and zoom
 - export resolutions, including a custom phone size
 
 Exports are rendered as exact-size PNG links in the browser. The viewport is always centered on `(0, 0)`.

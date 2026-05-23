@@ -8,6 +8,7 @@
     summary: document.getElementById("graphSummary"),
     canvas: document.getElementById("wallpaperCanvas"),
     radius: document.getElementById("radiusInput"),
+    maxPoints: document.getElementById("maxPointsInput"),
     angle: document.getElementById("angleInput"),
     angleOutput: document.getElementById("angleOutput"),
     pRe: document.getElementById("pReInput"),
@@ -19,6 +20,8 @@
     lineWidth: document.getElementById("lineWidthInput"),
     previewPreset: document.getElementById("previewPresetInput"),
     worldWidth: document.getElementById("worldWidthInput"),
+    zoom: document.getElementById("zoomInput"),
+    zoomOutput: document.getElementById("zoomOutput"),
     customWidth: document.getElementById("customWidthInput"),
     customHeight: document.getElementById("customHeightInput"),
     exportPresetList: document.getElementById("exportPresetList"),
@@ -41,8 +44,12 @@
   }
 
   function currentState() {
+    const worldWidth = numberValue(refs.worldWidth, 8.8);
+    const zoom = Math.max(0.1, numberValue(refs.zoom, 1));
+
     return {
       radius: numberValue(refs.radius, 4),
+      maxPoints: numberValue(refs.maxPoints, Graph.DEFAULTS.maxPoints),
       pRe: numberValue(refs.pRe, Graph.DEFAULTS.pRe),
       pIm: numberValue(refs.pIm, Graph.DEFAULTS.pIm),
       pointColor: refs.pointColor.value,
@@ -50,12 +57,15 @@
       backgroundColor: refs.backgroundColor.value,
       pointRadius: numberValue(refs.pointSize, 3),
       lineWidth: numberValue(refs.lineWidth, 1.25),
-      viewWidth: numberValue(refs.worldWidth, 8.8),
+      zoom,
+      viewWidth: worldWidth / zoom,
     };
   }
 
   function graphKey(state) {
-    return [state.radius, state.pRe, state.pIm].map((value) => Number(value).toFixed(8)).join(":");
+    return [state.radius, state.maxPoints, state.pRe, state.pIm]
+      .map((value) => Number(value).toFixed(8))
+      .join(":");
   }
 
   function presetWithCustomSize(preset) {
@@ -84,6 +94,10 @@
 
   function syncAngleOutput() {
     refs.angleOutput.textContent = `${Number(refs.angle.value).toFixed(1)} deg`;
+  }
+
+  function syncZoomOutput() {
+    refs.zoomOutput.textContent = `${Number(refs.zoom.value).toFixed(1)}x`;
   }
 
   function setPFromAngle() {
@@ -241,6 +255,7 @@
 
   populatePresets();
   setPFromAngle();
+  syncZoomOutput();
   render();
 
   refs.angle.addEventListener("input", () => {
@@ -259,6 +274,7 @@
   });
 
   refs.form.addEventListener("input", scheduleRender);
+  refs.zoom.addEventListener("input", syncZoomOutput);
   refs.previewPreset.addEventListener("change", scheduleRender);
 
   refs.exportPreview.addEventListener("click", () => {

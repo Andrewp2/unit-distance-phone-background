@@ -57,3 +57,14 @@ const invalid = Graph.generateGraph({ radius: 4, pRe: 1, pIm: 0 });
 assert.equal(invalid.points.length, 0);
 assert.equal(invalid.edges.length, 0);
 assert.ok(invalid.warnings.length > 0);
+
+const capped = Graph.generateGraph({
+  radius: 4,
+  pRe: Math.cos(Math.PI / 5),
+  pIm: Math.sin(Math.PI / 5),
+  maxPoints: 100,
+});
+
+assert.equal(capped.points.length, 100);
+assert.equal(capped.capped, true);
+assert.ok(capped.warnings.some((warning) => warning.includes("Point limit")));
