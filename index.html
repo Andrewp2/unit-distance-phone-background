@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Unit Distance Wallpaper</title>
+    <link rel="stylesheet" href="styles.css">
+    <script defer src="src/graph.js"></script>
+    <script defer src="src/app.js"></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="controls" aria-label="Wallpaper controls">
+        <header class="brand">
+          <h1>Unit Distance Wallpaper</h1>
+          <p id="graphSummary">Preparing graph...</p>
+        </header>
+
+        <form id="controlForm">
+          <fieldset>
+            <legend>Graph</legend>
+            <label>
+              <span>Radius</span>
+              <input id="radiusInput" type="number" min="0.5" max="12" step="0.1" value="4">
+            </label>
+            <label>
+              <span>p angle</span>
+              <input id="angleInput" type="range" min="5" max="85" step="0.5" value="36">
+              <output id="angleOutput" for="angleInput">36.0 deg</output>
+            </label>
+            <div class="two-up">
+              <label>
+                <span>Re(p)</span>
+                <input id="pReInput" type="number" step="0.000001" value="0.809017">
+              </label>
+              <label>
+                <span>Im(p)</span>
+                <input id="pImInput" type="number" step="0.000001" value="0.587785">
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Style</legend>
+            <div class="swatches">
+              <label>
+                <span>Points</span>
+                <input id="pointColorInput" type="color" value="#f4f7fb">
+              </label>
+              <label>
+                <span>Lines</span>
+                <input id="lineColorInput" type="color" value="#2dd4bf">
+              </label>
+              <label>
+                <span>Background</span>
+                <input id="backgroundColorInput" type="color" value="#101820">
+              </label>
+            </div>
+            <div class="two-up">
+              <label>
+                <span>Dot px</span>
+                <input id="pointSizeInput" type="number" min="0.5" max="24" step="0.25" value="3">
+              </label>
+              <label>
+                <span>Line px</span>
+                <input id="lineWidthInput" type="number" min="0.25" max="12" step="0.25" value="1.25">
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Viewport</legend>
+            <label>
+              <span>Preview size</span>
+              <select id="previewPresetInput"></select>
+            </label>
+            <label>
+              <span>World width</span>
+              <input id="worldWidthInput" type="number" min="1" max="40" step="0.1" value="8.8">
+            </label>
+            <div class="two-up">
+              <label>
+                <span>Custom w</span>
+                <input id="customWidthInput" type="number" min="320" max="10000" step="1" value="1080">
+              </label>
+              <label>
+                <span>Custom h</span>
+                <input id="customHeightInput" type="number" min="320" max="12000" step="1" value="2400">
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Exports</legend>
+            <div id="exportPresetList" class="preset-list"></div>
+            <div class="actions">
+              <button id="exportPreviewButton" type="button">Export preview</button>
+              <button id="exportSelectedButton" type="button">Build selected PNGs</button>
+              <button id="clearExportsButton" type="button">Clear</button>
+            </div>
+          </fieldset>
+        </form>
+      </aside>
+
+      <section class="preview-area" aria-label="Wallpaper preview">
+        <div class="preview-toolbar">
+          <div>
+            <strong id="previewName">Preview</strong>
+            <span id="previewSize">1080 x 2400</span>
+          </div>
+          <div id="warningText" class="warning" role="status" aria-live="polite"></div>
+        </div>
+        <div class="canvas-frame">
+          <canvas id="wallpaperCanvas" width="1080" height="2400"></canvas>
+        </div>
+        <div id="exportOutput" class="export-output" aria-live="polite"></div>
+      </section>
+    </main>
+  </body>
+</html>
