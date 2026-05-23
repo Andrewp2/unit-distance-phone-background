@@ -90,6 +90,20 @@ assert.equal(smallerBox.edges.length, 1992);
 
 assert.deepEqual(Graph.primitiveExponents(8), [1, 3, 5, 7]);
 
+assert.deepEqual(Graph.recommendedCoefficientRange(6, 1), {
+  minimum: -4,
+  maximum: 4,
+  rank: 4,
+  totalCandidates: 6561,
+});
+
+assert.deepEqual(Graph.recommendedCoefficientRange(5, 1), {
+  minimum: -1,
+  maximum: 1,
+  rank: 8,
+  totalCandidates: 6561,
+});
+
 const zeta8 = Graph.generateGraph({
   radius: 4,
   rootOrder: 8,

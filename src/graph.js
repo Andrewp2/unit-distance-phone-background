@@ -188,6 +188,18 @@
     };
   }
 
+  function recommendedCoefficientRange(order, exponent) {
+    const construction = rootOfUnity(order, exponent);
+    const halfWidth = construction.rank <= 4 ? 4 : 1;
+
+    return {
+      minimum: -halfWidth,
+      maximum: halfWidth,
+      rank: construction.rank,
+      totalCandidates: (2 * halfWidth + 1) ** construction.rank,
+    };
+  }
+
   function complexRoot(order, exponent) {
     const angle = (2 * Math.PI * exponent) / order;
 
@@ -479,6 +491,7 @@
     eulerPhi,
     evaluateCoefficients,
     primitiveExponents,
+    recommendedCoefficientRange,
     rootOfUnity,
     generateGraph,
     findUnitEdges,

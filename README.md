@@ -45,6 +45,10 @@ The app lets you adjust:
 - centered viewport width and zoom
 - export resolutions, including a custom phone size
 
+When the root order changes, the coefficient range is reset based on the ring
+rank: rank 4 or lower uses `-4..4`, and higher ranks use `-1..1` by default.
+You can still override the range manually.
+
 Exports are rendered as exact-size PNG links in the browser. The viewport is always centered on `(0, 0)`.
 
 ## GitHub Pages

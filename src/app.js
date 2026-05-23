@@ -111,6 +111,16 @@
     refs.constructionOutput.textContent = `${rho.label}, full ring ${rho.ringLabel}, rank ${rho.rank}, rho = ${rho.re.toFixed(6)} ${rho.im < 0 ? "-" : "+"} ${Math.abs(rho.im).toFixed(6)}i`;
   }
 
+  function applyRecommendedCoefficientRange() {
+    const recommended = Graph.recommendedCoefficientRange(
+      numberValue(refs.rootOrder, Graph.DEFAULTS.rootOrder),
+      numberValue(refs.rootExponent, Graph.DEFAULTS.rootExponent),
+    );
+
+    refs.coefficientMin.value = String(recommended.minimum);
+    refs.coefficientMax.value = String(recommended.maximum);
+  }
+
   function populateRootOrders() {
     for (const order of Graph.ROOT_ORDER_PRESETS) {
       const option = document.createElement("option");
@@ -283,6 +293,8 @@
 
   refs.rootOrder.addEventListener("change", () => {
     populateRootExponents();
+    applyRecommendedCoefficientRange();
+    syncConstructionOutput();
     scheduleRender();
   });
 
