@@ -25,8 +25,7 @@ function bruteForceEdges(points, tolerance) {
 
 const graph = Graph.generateGraph({
   radius: 4,
-  pRe: Math.cos(Math.PI / 5),
-  pIm: Math.sin(Math.PI / 5),
+  discriminant: 5,
 });
 
 assert.equal(graph.warnings.length, 0);
@@ -34,8 +33,14 @@ assert.ok(graph.points.length > 100, "default construction should produce a visi
 assert.ok(graph.edges.length > graph.points.length, "default construction should produce many unit edges");
 
 for (const point of graph.points) {
-  const z = Graph.pointFromCoefficients(point.a, point.b, point.c, point.d, graph.p);
-  const alternate = Graph.alternatePointFromCoefficients(point.a, point.b, point.c, point.d, graph.p);
+  const z = Graph.pointFromCoefficients(point.a, point.b, point.c, point.d, graph.field.omega);
+  const alternate = Graph.pointFromCoefficients(
+    point.a,
+    point.b,
+    point.c,
+    point.d,
+    graph.field.omegaConjugate,
+  );
   assert.ok(Math.hypot(z.x, z.y) < graph.radius);
   assert.ok(Math.hypot(alternate.x, alternate.y) < graph.radius);
 }
@@ -53,15 +58,12 @@ const hashedEdges = Graph.findUnitEdges(indexedSparsePoints, 1e-6).map(edgeKey).
 const expectedEdges = bruteForceEdges(indexedSparsePoints, 1e-6).map(edgeKey).sort();
 assert.deepEqual(hashedEdges, expectedEdges, "spatial hash must match brute-force edge search");
 
-const invalid = Graph.generateGraph({ radius: 4, pRe: 1, pIm: 0 });
-assert.equal(invalid.points.length, 0);
-assert.equal(invalid.edges.length, 0);
+const invalid = Graph.generateGraph({ radius: 4, discriminant: 12 });
 assert.ok(invalid.warnings.length > 0);
 
 const capped = Graph.generateGraph({
   radius: 4,
-  pRe: Math.cos(Math.PI / 5),
-  pIm: Math.sin(Math.PI / 5),
+  discriminant: 5,
   maxPoints: 100,
 });
 

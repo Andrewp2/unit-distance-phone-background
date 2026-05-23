@@ -9,13 +9,12 @@
 })(typeof window !== "undefined" ? window : globalThis, function createGraphApi() {
   const DEFAULTS = {
     radius: 4,
-    pRe: 0.8090169943749475,
-    pIm: 0.5877852522924731,
+    discriminant: 5,
     edgeTolerance: 1e-6,
     maxPoints: 2500,
   };
 
-  const MAX_COEFFICIENT_LIMIT = 140;
+  const MAX_COEFFICIENT_LIMIT = 240;
   const POINT_KEY_SCALE = 1e9;
 
   function finiteNumber(value, fallback) {
@@ -27,17 +26,45 @@
     return `${Math.round(x * POINT_KEY_SCALE)},${Math.round(y * POINT_KEY_SCALE)}`;
   }
 
-  function pointFromCoefficients(a, b, c, d, p) {
+  function isSquareFree(value) {
+    const integer = Math.abs(Math.trunc(value));
+
+    for (let factor = 2; factor * factor <= integer; factor += 1) {
+      if (integer % (factor * factor) === 0) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  function fieldFromDiscriminant(value) {
+    const discriminant = Math.max(2, Math.round(finiteNumber(value, DEFAULTS.discriminant)));
+    const squareRoot = Math.sqrt(discriminant);
+    const omega = (1 + squareRoot) / 2;
+    const omegaConjugate = (1 - squareRoot) / 2;
+    const warnings = [];
+
+    if (discriminant % 4 !== 1 || !isSquareFree(discriminant)) {
+      warnings.push(
+        "For the current integral basis, choose squarefree D with D = 1 mod 4.",
+      );
+    }
+
     return {
-      x: a + c * p.re - d * p.im,
-      y: b + c * p.im + d * p.re,
+      discriminant,
+      squareRoot,
+      omega,
+      omegaConjugate,
+      label: `Q(i, sqrt(${discriminant}))`,
+      warnings,
     };
   }
 
-  function alternatePointFromCoefficients(a, b, c, d, p) {
+  function pointFromCoefficients(a, b, c, d, omega) {
     return {
-      x: a + c * p.re + d * p.im,
-      y: -b + c * p.im - d * p.re,
+      x: a + c * omega,
+      y: b + d * omega,
     };
   }
 
@@ -73,42 +100,34 @@
     return values;
   }
 
+  function coefficientLimitForField(radius, field) {
+    const conjugateGap = Math.abs(field.omega - field.omegaConjugate);
+    const slopeLimit = (2 * radius) / conjugateGap;
+    const interceptLimit = radius + slopeLimit * Math.max(Math.abs(field.omega), Math.abs(field.omegaConjugate));
+
+    return Math.ceil(Math.max(slopeLimit, interceptLimit)) + 2;
+  }
+
   function generateGraph(options) {
     const radius = Math.max(0.001, finiteNumber(options && options.radius, DEFAULTS.radius));
     const maxPoints = Math.max(1, Math.floor(finiteNumber(options && options.maxPoints, DEFAULTS.maxPoints)));
-    const p = {
-      re: finiteNumber(options && options.pRe, DEFAULTS.pRe),
-      im: finiteNumber(options && options.pIm, DEFAULTS.pIm),
-    };
+    const field = fieldFromDiscriminant(options && options.discriminant);
     const edgeTolerance = Math.max(
       1e-12,
       finiteNumber(options && options.edgeTolerance, DEFAULTS.edgeTolerance),
     );
-    const warnings = [];
+    const warnings = [...field.warnings];
 
-    if (Math.abs(p.im) < 1e-8) {
-      return {
-        points: [],
-        edges: [],
-        p,
-        radius,
-        maxPoints,
-        warnings: ["Im(p) must be nonzero for this finite cut-and-project window."],
-        duplicateCount: 0,
-        capped: false,
-      };
-    }
-
-    const coefficientLimit = Math.ceil(radius / Math.abs(p.im)) + 2;
+    const coefficientLimit = coefficientLimitForField(radius, field);
     if (coefficientLimit > MAX_COEFFICIENT_LIMIT) {
       return {
         points: [],
         edges: [],
-        p,
+        field,
         radius,
         maxPoints,
         warnings: [
-          `Im(p) is too close to zero for browser rendering; coefficient limit would be ${coefficientLimit}.`,
+          `This field/radius needs coefficient limit ${coefficientLimit}, above the browser limit ${MAX_COEFFICIENT_LIMIT}.`,
         ],
         duplicateCount: 0,
         capped: false,
@@ -122,19 +141,27 @@
     let capped = false;
 
     coefficientLoop: for (const c of coefficientValues) {
-      const aMin = Math.ceil(-radius - c * p.re);
-      const aMax = Math.floor(radius - c * p.re);
+      const aMin = Math.ceil(
+        Math.max(-radius - c * field.omega, -radius - c * field.omegaConjugate),
+      );
+      const aMax = Math.floor(
+        Math.min(radius - c * field.omega, radius - c * field.omegaConjugate),
+      );
+      const aValues = integerRangeAround(aMin, aMax, -(c * (field.omega + field.omegaConjugate)) / 2);
 
       for (const d of coefficientValues) {
-        const bMin = Math.ceil(-radius - d * p.re);
-        const bMax = Math.floor(radius - d * p.re);
-        const aValues = integerRangeAround(aMin, aMax, -c * p.re + d * p.im);
-        const bValues = integerRangeAround(bMin, bMax, -c * p.im - d * p.re);
+        const bMin = Math.ceil(
+          Math.max(-radius - d * field.omega, -radius - d * field.omegaConjugate),
+        );
+        const bMax = Math.floor(
+          Math.min(radius - d * field.omega, radius - d * field.omegaConjugate),
+        );
+        const bValues = integerRangeAround(bMin, bMax, -(d * (field.omega + field.omegaConjugate)) / 2);
 
         for (const a of aValues) {
           for (const b of bValues) {
-            const z = pointFromCoefficients(a, b, c, d, p);
-            const alternate = alternatePointFromCoefficients(a, b, c, d, p);
+            const z = pointFromCoefficients(a, b, c, d, field.omega);
+            const alternate = pointFromCoefficients(a, b, c, d, field.omegaConjugate);
 
             if (!inOpenDisk(z, radius) || !inOpenDisk(alternate, radius)) {
               continue;
@@ -178,7 +205,7 @@
     return {
       points,
       edges,
-      p,
+      field,
       radius,
       maxPoints,
       warnings,
@@ -307,12 +334,12 @@
 
   return {
     DEFAULTS,
+    fieldFromDiscriminant,
     generateGraph,
     findUnitEdges,
     renderGraph,
     phonePresets,
     downloadName,
     pointFromCoefficients,
-    alternatePointFromCoefficients,
   };
 });

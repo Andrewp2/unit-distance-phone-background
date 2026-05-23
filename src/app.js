@@ -9,10 +9,8 @@
     canvas: document.getElementById("wallpaperCanvas"),
     radius: document.getElementById("radiusInput"),
     maxPoints: document.getElementById("maxPointsInput"),
-    angle: document.getElementById("angleInput"),
-    angleOutput: document.getElementById("angleOutput"),
-    pRe: document.getElementById("pReInput"),
-    pIm: document.getElementById("pImInput"),
+    discriminant: document.getElementById("discriminantInput"),
+    fieldOutput: document.getElementById("fieldOutput"),
     pointColor: document.getElementById("pointColorInput"),
     lineColor: document.getElementById("lineColorInput"),
     backgroundColor: document.getElementById("backgroundColorInput"),
@@ -50,8 +48,7 @@
     return {
       radius: numberValue(refs.radius, 4),
       maxPoints: numberValue(refs.maxPoints, Graph.DEFAULTS.maxPoints),
-      pRe: numberValue(refs.pRe, Graph.DEFAULTS.pRe),
-      pIm: numberValue(refs.pIm, Graph.DEFAULTS.pIm),
+      discriminant: numberValue(refs.discriminant, Graph.DEFAULTS.discriminant),
       pointColor: refs.pointColor.value,
       lineColor: refs.lineColor.value,
       backgroundColor: refs.backgroundColor.value,
@@ -63,7 +60,7 @@
   }
 
   function graphKey(state) {
-    return [state.radius, state.maxPoints, state.pRe, state.pIm]
+    return [state.radius, state.maxPoints, state.discriminant]
       .map((value) => Number(value).toFixed(8))
       .join(":");
   }
@@ -92,28 +89,13 @@
       .map(presetWithCustomSize);
   }
 
-  function syncAngleOutput() {
-    refs.angleOutput.textContent = `${Number(refs.angle.value).toFixed(1)} deg`;
-  }
-
   function syncZoomOutput() {
     refs.zoomOutput.textContent = `${Number(refs.zoom.value).toFixed(1)}x`;
   }
 
-  function setPFromAngle() {
-    const angle = (Number(refs.angle.value) * Math.PI) / 180;
-    refs.pRe.value = Math.cos(angle).toFixed(6);
-    refs.pIm.value = Math.sin(angle).toFixed(6);
-    syncAngleOutput();
-  }
-
-  function setAngleFromP() {
-    const angle = (Math.atan2(numberValue(refs.pIm, 0), numberValue(refs.pRe, 1)) * 180) / Math.PI;
-    if (Number.isFinite(angle)) {
-      const clamped = Math.max(Number(refs.angle.min), Math.min(Number(refs.angle.max), angle));
-      refs.angle.value = String(clamped);
-      syncAngleOutput();
-    }
+  function syncFieldOutput() {
+    const field = Graph.fieldFromDiscriminant(numberValue(refs.discriminant, Graph.DEFAULTS.discriminant));
+    refs.fieldOutput.textContent = `K = ${field.label}, omega = ${(field.omega).toFixed(6)}`;
   }
 
   function populatePresets() {
@@ -183,8 +165,7 @@
 
     Graph.renderGraph(refs.canvas, graph, state);
 
-    const pLabel = `${state.pRe.toFixed(4)} ${state.pIm < 0 ? "-" : "+"} ${Math.abs(state.pIm).toFixed(4)}i`;
-    refs.summary.textContent = `${graph.points.length} points, ${graph.edges.length} unit edges, p = ${pLabel}`;
+    refs.summary.textContent = `${graph.points.length} points, ${graph.edges.length} unit edges, K = ${graph.field.label}`;
     refs.warning.textContent = graph.warnings.join(" ");
   }
 
@@ -254,22 +235,12 @@
   }
 
   populatePresets();
-  setPFromAngle();
+  syncFieldOutput();
   syncZoomOutput();
   render();
 
-  refs.angle.addEventListener("input", () => {
-    setPFromAngle();
-    scheduleRender();
-  });
-
-  refs.pRe.addEventListener("input", () => {
-    setAngleFromP();
-    scheduleRender();
-  });
-
-  refs.pIm.addEventListener("input", () => {
-    setAngleFromP();
+  refs.discriminant.addEventListener("input", () => {
+    syncFieldOutput();
     scheduleRender();
   });
 
