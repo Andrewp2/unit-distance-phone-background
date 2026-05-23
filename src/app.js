@@ -1,7 +1,6 @@
 (function bootWallpaperApp() {
   const Graph = window.UnitDistanceGraph;
   const presets = Graph.phonePresets();
-  const generatedUrls = [];
 
   const refs = {
     form: document.getElementById("controlForm"),
@@ -240,19 +239,35 @@
     link.append(size);
 
     refs.exportOutput.prepend(link);
+    return link;
   }
 
-  function renderPresetToBlob(preset) {
-    return new Promise((resolve) => {
-      const exportCanvas = document.createElement("canvas");
-      exportCanvas.width = preset.width;
-      exportCanvas.height = preset.height;
-      Graph.renderGraph(exportCanvas, graph, currentState());
-      exportCanvas.toBlob(resolve, "image/png");
-    });
+  function renderPresetToUrl(preset) {
+    const exportCanvas = document.createElement("canvas");
+    exportCanvas.width = preset.width;
+    exportCanvas.height = preset.height;
+    Graph.renderGraph(exportCanvas, graph, currentState());
+    return exportCanvas.toDataURL("image/png");
   }
 
-  async function buildExports(presetsToRender) {
+  function triggerDownload(url, preset) {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = Graph.downloadName(preset);
+    link.style.display = "none";
+    document.body.append(link);
+    link.click();
+    link.remove();
+  }
+
+  function appendExportMessage(text) {
+    const message = document.createElement("p");
+    message.className = "export-message";
+    message.textContent = text;
+    refs.exportOutput.prepend(message);
+  }
+
+  function buildExports(presetsToRender, options) {
     refs.exportPreview.disabled = true;
     refs.exportSelected.disabled = true;
 
@@ -261,15 +276,18 @@
         render();
       }
 
-      for (const preset of presetsToRender) {
-        const blob = await renderPresetToBlob(preset);
-        if (!blob) {
-          continue;
-        }
+      if (presetsToRender.length === 0) {
+        appendExportMessage("Select one or more export sizes, or use Download preview PNG.");
+        return;
+      }
 
-        const url = URL.createObjectURL(blob);
-        generatedUrls.push(url);
+      for (const preset of presetsToRender) {
+        const url = renderPresetToUrl(preset);
         appendDownloadLink(url, preset);
+
+        if (options && options.downloadImmediately) {
+          triggerDownload(url, preset);
+        }
       }
     } finally {
       refs.exportPreview.disabled = false;
@@ -278,9 +296,6 @@
   }
 
   function clearExports() {
-    for (const url of generatedUrls.splice(0)) {
-      URL.revokeObjectURL(url);
-    }
     refs.exportOutput.replaceChildren();
   }
 
@@ -308,14 +323,12 @@
   refs.previewPreset.addEventListener("change", scheduleRender);
 
   refs.exportPreview.addEventListener("click", () => {
-    buildExports([selectedPreviewPreset()]);
+    buildExports([selectedPreviewPreset()], { downloadImmediately: true });
   });
 
   refs.exportSelected.addEventListener("click", () => {
     const batch = selectedExportPresets();
-    if (batch.length > 0) {
-      buildExports(batch);
-    }
+    buildExports(batch, { downloadImmediately: batch.length === 1 });
   });
 
   refs.clearExports.addEventListener("click", clearExports);
