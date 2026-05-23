@@ -9,6 +9,8 @@
     canvas: document.getElementById("wallpaperCanvas"),
     radius: document.getElementById("radiusInput"),
     maxPoints: document.getElementById("maxPointsInput"),
+    coefficientMin: document.getElementById("coefficientMinInput"),
+    coefficientMax: document.getElementById("coefficientMaxInput"),
     rootOrder: document.getElementById("rootOrderInput"),
     rootExponent: document.getElementById("rootExponentInput"),
     constructionOutput: document.getElementById("constructionOutput"),
@@ -49,6 +51,8 @@
     return {
       radius: numberValue(refs.radius, 4),
       maxPoints: numberValue(refs.maxPoints, Graph.DEFAULTS.maxPoints),
+      coefficientMin: numberValue(refs.coefficientMin, Graph.DEFAULTS.coefficientMin),
+      coefficientMax: numberValue(refs.coefficientMax, Graph.DEFAULTS.coefficientMax),
       rootOrder: numberValue(refs.rootOrder, Graph.DEFAULTS.rootOrder),
       rootExponent: numberValue(refs.rootExponent, Graph.DEFAULTS.rootExponent),
       pointColor: refs.pointColor.value,
@@ -62,7 +66,14 @@
   }
 
   function graphKey(state) {
-    return [state.radius, state.maxPoints, state.rootOrder, state.rootExponent]
+    return [
+      state.radius,
+      state.maxPoints,
+      state.coefficientMin,
+      state.coefficientMax,
+      state.rootOrder,
+      state.rootExponent,
+    ]
       .map((value) => Number(value).toFixed(8))
       .join(":");
   }
@@ -194,7 +205,7 @@
 
     Graph.renderGraph(refs.canvas, graph, state);
 
-    refs.summary.textContent = `${graph.points.length} points, ${graph.edges.length} unit edges, ${graph.construction.ringLabel}`;
+    refs.summary.textContent = `${graph.points.length} points, ${graph.edges.length} unit edges, ${graph.construction.ringLabel}, coeffs ${graph.coefficientRange.minimum}..${graph.coefficientRange.maximum}`;
     refs.warning.textContent = graph.warnings.join(" ");
   }
 

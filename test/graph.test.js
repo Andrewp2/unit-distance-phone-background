@@ -27,6 +27,8 @@ const graph = Graph.generateGraph({
   radius: 4,
   rootOrder: 6,
   rootExponent: 1,
+  coefficientMin: -4,
+  coefficientMax: 4,
 });
 
 assert.equal(graph.warnings.length, 0);
@@ -44,6 +46,10 @@ for (const point of graph.points) {
   );
   assert.ok(Math.hypot(z.x, z.y) < graph.radius);
   assert.ok(Math.hypot(alternate.x, alternate.y) < graph.radius);
+  assert.ok(point.a >= -4 && point.a <= 4);
+  assert.ok(point.b >= -4 && point.b <= 4);
+  assert.ok(point.c >= -4 && point.c <= 4);
+  assert.ok(point.d >= -4 && point.d <= 4);
 }
 
 for (const edge of graph.edges) {
@@ -63,12 +69,25 @@ const capped = Graph.generateGraph({
   radius: 4,
   rootOrder: 6,
   rootExponent: 1,
+  coefficientMin: -4,
+  coefficientMax: 4,
   maxPoints: 100,
 });
 
 assert.equal(capped.points.length, 100);
 assert.equal(capped.capped, true);
 assert.ok(capped.warnings.some((warning) => warning.includes("Point limit")));
+
+const smallerBox = Graph.generateGraph({
+  radius: 4,
+  rootOrder: 6,
+  rootExponent: 1,
+  coefficientMin: -2,
+  coefficientMax: 2,
+});
+
+assert.equal(smallerBox.points.length, 469);
+assert.equal(smallerBox.edges.length, 2024);
 
 assert.deepEqual(Graph.primitiveExponents(8), [1, 3, 5, 7]);
 

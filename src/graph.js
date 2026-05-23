@@ -11,11 +11,14 @@
     radius: 4,
     rootOrder: 6,
     rootExponent: 1,
+    coefficientMin: -4,
+    coefficientMax: 4,
     edgeTolerance: 1e-6,
     maxPoints: 2500,
   };
 
   const ROOT_ORDER_PRESETS = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 16, 20, 24, 30];
+  const COEFFICIENT_LIMIT = 60;
   const POINT_KEY_SCALE = 1e9;
   const COMMON_TRIG_VALUES = [
     -1,
@@ -123,14 +126,6 @@
     return Math.hypot(point.x, point.y) < radius;
   }
 
-  function centeredIntegers(limit) {
-    const values = [0];
-    for (let value = 1; value <= limit; value += 1) {
-      values.push(value, -value);
-    }
-    return values;
-  }
-
   function integerRangeAround(minimum, maximum, center) {
     const values = [];
     for (let value = minimum; value <= maximum; value += 1) {
@@ -151,23 +146,50 @@
     return values;
   }
 
+  function clamp(value, minimum, maximum) {
+    return Math.max(minimum, Math.min(maximum, value));
+  }
+
   function integerRangeInside(lower, upper, center) {
     return integerRangeAround(Math.floor(lower) + 1, Math.ceil(upper) - 1, center);
   }
 
-  function coefficientLimitForRadius(radius, rho) {
-    return Math.ceil(radius / Math.abs(rho.im)) + 2;
+  function coefficientRange(options) {
+    const rawMin = Math.round(finiteNumber(options && options.coefficientMin, DEFAULTS.coefficientMin));
+    const rawMax = Math.round(finiteNumber(options && options.coefficientMax, DEFAULTS.coefficientMax));
+    const warnings = [];
+    let minimum = clamp(rawMin, -COEFFICIENT_LIMIT, COEFFICIENT_LIMIT);
+    let maximum = clamp(rawMax, -COEFFICIENT_LIMIT, COEFFICIENT_LIMIT);
+
+    if (minimum !== rawMin || maximum !== rawMax) {
+      warnings.push(`Coefficient range is clamped to -${COEFFICIENT_LIMIT}..${COEFFICIENT_LIMIT}.`);
+    }
+
+    if (minimum > maximum) {
+      const nextMinimum = maximum;
+      maximum = minimum;
+      minimum = nextMinimum;
+      warnings.push("Coefficient min/max were swapped because min was greater than max.");
+    }
+
+    return {
+      minimum,
+      maximum,
+      values: integerRangeAround(minimum, maximum, 0),
+      warnings,
+    };
   }
 
   function generateGraph(options) {
     const radius = Math.max(0.001, finiteNumber(options && options.radius, DEFAULTS.radius));
     const rho = rootOfUnity(options && options.rootOrder, options && options.rootExponent);
+    const coefficientBox = coefficientRange(options);
     const maxPoints = Math.max(1, Math.floor(finiteNumber(options && options.maxPoints, DEFAULTS.maxPoints)));
     const edgeTolerance = Math.max(
       1e-12,
       finiteNumber(options && options.edgeTolerance, DEFAULTS.edgeTolerance),
     );
-    const warnings = [];
+    const warnings = [...coefficientBox.warnings];
     if (Math.abs(rho.im) < 1e-8) {
       warnings.push("rho must be non-real for this finite four-coefficient search.");
       return {
@@ -188,11 +210,9 @@
       );
     }
 
-    const coefficientLimit = coefficientLimitForRadius(radius, rho);
-
     const points = [];
     const seen = new Map();
-    const coefficientValues = centeredIntegers(coefficientLimit);
+    const coefficientValues = coefficientBox.values;
     let duplicateCount = 0;
     let capped = false;
 
@@ -214,8 +234,16 @@
           radius - c * rho.im - d * rho.re,
           c * rho.im - d * rho.re + radius,
         );
-        const aValues = integerRangeInside(aLower, aUpper, -c * rho.re);
-        const bValues = integerRangeInside(bLower, bUpper, -d * rho.re);
+        const aValues = integerRangeInside(
+          Math.max(aLower, coefficientBox.minimum - 1),
+          Math.min(aUpper, coefficientBox.maximum + 1),
+          -c * rho.re,
+        );
+        const bValues = integerRangeInside(
+          Math.max(bLower, coefficientBox.minimum - 1),
+          Math.min(bUpper, coefficientBox.maximum + 1),
+          -d * rho.re,
+        );
 
         for (const a of aValues) {
           for (const b of bValues) {
@@ -265,6 +293,10 @@
       points,
       edges,
       construction: rho,
+      coefficientRange: {
+        minimum: coefficientBox.minimum,
+        maximum: coefficientBox.maximum,
+      },
       radius,
       maxPoints,
       warnings,
@@ -394,6 +426,8 @@
   return {
     DEFAULTS,
     ROOT_ORDER_PRESETS,
+    COEFFICIENT_LIMIT,
+    coefficientRange,
     primitiveExponents,
     rootOfUnity,
     generateGraph,

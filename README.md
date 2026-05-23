@@ -37,6 +37,7 @@ Open `index.html` in a browser, or serve the folder with any static web server.
 The app lets you adjust:
 
 - graph radius
+- coefficient range for `a`, `b`, `c`, and `d`
 - primitive root of unity used for `rho`
 - maximum point count, to keep dense angle choices responsive
 - point, line, and background colors
