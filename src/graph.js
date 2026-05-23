@@ -9,19 +9,25 @@
 })(typeof window !== "undefined" ? window : globalThis, function createGraphApi() {
   const DEFAULTS = {
     radius: 4,
+    rootOrder: 6,
+    rootExponent: 1,
     edgeTolerance: 1e-6,
     maxPoints: 2500,
   };
 
-  const RHO = {
-    re: 0.5,
-    im: Math.sqrt(3) / 2,
-  };
-  const CONSTRUCTION = {
-    label: "Z[zeta_12], rho = exp(pi i / 3)",
-    rho: RHO,
-  };
+  const ROOT_ORDER_PRESETS = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 16, 20, 24, 30];
   const POINT_KEY_SCALE = 1e9;
+  const COMMON_TRIG_VALUES = [
+    -1,
+    -Math.sqrt(3) / 2,
+    -Math.SQRT1_2,
+    -0.5,
+    0,
+    0.5,
+    Math.SQRT1_2,
+    Math.sqrt(3) / 2,
+    1,
+  ];
 
   function finiteNumber(value, fallback) {
     const next = Number(value);
@@ -32,8 +38,71 @@
     return `${Math.round(x * POINT_KEY_SCALE)},${Math.round(y * POINT_KEY_SCALE)}`;
   }
 
+  function gcd(left, right) {
+    let a = Math.abs(Math.trunc(left));
+    let b = Math.abs(Math.trunc(right));
+
+    while (b !== 0) {
+      const next = a % b;
+      a = b;
+      b = next;
+    }
+
+    return a;
+  }
+
+  function lcm(left, right) {
+    return Math.abs(left * right) / gcd(left, right);
+  }
+
+  function primitiveExponents(order) {
+    const safeOrder = Math.max(3, Math.round(finiteNumber(order, DEFAULTS.rootOrder)));
+    const values = [];
+
+    for (let exponent = 1; exponent < safeOrder; exponent += 1) {
+      if (gcd(exponent, safeOrder) === 1) {
+        values.push(exponent);
+      }
+    }
+
+    return values;
+  }
+
+  function rootOfUnity(order, exponent) {
+    const safeOrder = Math.max(3, Math.round(finiteNumber(order, DEFAULTS.rootOrder)));
+    const primitiveValues = primitiveExponents(safeOrder);
+    const requestedExponent = Math.round(finiteNumber(exponent, DEFAULTS.rootExponent));
+    const safeExponent = primitiveValues.includes(requestedExponent)
+      ? requestedExponent
+      : primitiveValues[0];
+    const angle = (2 * Math.PI * safeExponent) / safeOrder;
+    const generatedOrder = lcm(4, safeOrder);
+    const re = snapTrig(Math.cos(angle));
+    const im = snapTrig(Math.sin(angle));
+
+    return {
+      order: safeOrder,
+      exponent: safeExponent,
+      re,
+      im,
+      generatedOrder,
+      label: `rho = zeta_${safeOrder}^${safeExponent}`,
+      ringLabel: `Z[i, rho] = Z[zeta_${generatedOrder}]`,
+    };
+  }
+
+  function snapTrig(value) {
+    for (const candidate of COMMON_TRIG_VALUES) {
+      if (Math.abs(value - candidate) < 1e-12) {
+        return candidate;
+      }
+    }
+
+    return value;
+  }
+
   function pointFromCoefficients(a, b, c, d, rho) {
-    const value = rho || RHO;
+    const value = rho || rootOfUnity(DEFAULTS.rootOrder, DEFAULTS.rootExponent);
 
     return {
       x: a + c * value.re - d * value.im,
@@ -42,7 +111,7 @@
   }
 
   function alternatePointFromCoefficients(a, b, c, d, rho) {
-    const value = rho || RHO;
+    const value = rho || rootOfUnity(DEFAULTS.rootOrder, DEFAULTS.rootExponent);
 
     return {
       x: a + c * value.re + d * value.im,
@@ -86,19 +155,40 @@
     return integerRangeAround(Math.floor(lower) + 1, Math.ceil(upper) - 1, center);
   }
 
-  function coefficientLimitForRadius(radius) {
-    return Math.ceil(radius / RHO.im) + 2;
+  function coefficientLimitForRadius(radius, rho) {
+    return Math.ceil(radius / Math.abs(rho.im)) + 2;
   }
 
   function generateGraph(options) {
     const radius = Math.max(0.001, finiteNumber(options && options.radius, DEFAULTS.radius));
+    const rho = rootOfUnity(options && options.rootOrder, options && options.rootExponent);
     const maxPoints = Math.max(1, Math.floor(finiteNumber(options && options.maxPoints, DEFAULTS.maxPoints)));
     const edgeTolerance = Math.max(
       1e-12,
       finiteNumber(options && options.edgeTolerance, DEFAULTS.edgeTolerance),
     );
     const warnings = [];
-    const coefficientLimit = coefficientLimitForRadius(radius);
+    if (Math.abs(rho.im) < 1e-8) {
+      warnings.push("rho must be non-real for this finite four-coefficient search.");
+      return {
+        points: [],
+        edges: [],
+        construction: rho,
+        radius,
+        maxPoints,
+        warnings,
+        duplicateCount: 0,
+        capped: false,
+      };
+    }
+
+    if (rho.generatedOrder > 12) {
+      warnings.push(
+        "For generated orders above 12 this is the same four-coefficient slice, not the full ring of integers.",
+      );
+    }
+
+    const coefficientLimit = coefficientLimitForRadius(radius, rho);
 
     const points = [];
     const seen = new Map();
@@ -109,28 +199,28 @@
     coefficientLoop: for (const c of coefficientValues) {
       for (const d of coefficientValues) {
         const aLower = Math.max(
-          -radius - c * RHO.re + d * RHO.im,
-          -radius - c * RHO.re - d * RHO.im,
+          -radius - c * rho.re + d * rho.im,
+          -radius - c * rho.re - d * rho.im,
         );
         const aUpper = Math.min(
-          radius - c * RHO.re + d * RHO.im,
-          radius - c * RHO.re - d * RHO.im,
+          radius - c * rho.re + d * rho.im,
+          radius - c * rho.re - d * rho.im,
         );
         const bLower = Math.max(
-          -radius - c * RHO.im - d * RHO.re,
-          c * RHO.im - d * RHO.re - radius,
+          -radius - c * rho.im - d * rho.re,
+          c * rho.im - d * rho.re - radius,
         );
         const bUpper = Math.min(
-          radius - c * RHO.im - d * RHO.re,
-          c * RHO.im - d * RHO.re + radius,
+          radius - c * rho.im - d * rho.re,
+          c * rho.im - d * rho.re + radius,
         );
-        const aValues = integerRangeInside(aLower, aUpper, -c * RHO.re);
-        const bValues = integerRangeInside(bLower, bUpper, -d * RHO.re);
+        const aValues = integerRangeInside(aLower, aUpper, -c * rho.re);
+        const bValues = integerRangeInside(bLower, bUpper, -d * rho.re);
 
         for (const a of aValues) {
           for (const b of bValues) {
-            const z = pointFromCoefficients(a, b, c, d);
-            const alternate = alternatePointFromCoefficients(a, b, c, d);
+            const z = pointFromCoefficients(a, b, c, d, rho);
+            const alternate = alternatePointFromCoefficients(a, b, c, d, rho);
 
             if (!inOpenDisk(z, radius) || !inOpenDisk(alternate, radius)) {
               continue;
@@ -174,7 +264,7 @@
     return {
       points,
       edges,
-      construction: CONSTRUCTION,
+      construction: rho,
       radius,
       maxPoints,
       warnings,
@@ -303,8 +393,9 @@
 
   return {
     DEFAULTS,
-    CONSTRUCTION,
-    RHO,
+    ROOT_ORDER_PRESETS,
+    primitiveExponents,
+    rootOfUnity,
     generateGraph,
     findUnitEdges,
     renderGraph,

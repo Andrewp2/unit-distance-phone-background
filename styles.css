@@ -136,6 +136,12 @@ output {
   font-weight: 700;
 }
 
+.construction-output {
+  display: block;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
 .two-up,
 .swatches {
   display: grid;

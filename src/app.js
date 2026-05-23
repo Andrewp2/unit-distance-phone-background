@@ -9,6 +9,9 @@
     canvas: document.getElementById("wallpaperCanvas"),
     radius: document.getElementById("radiusInput"),
     maxPoints: document.getElementById("maxPointsInput"),
+    rootOrder: document.getElementById("rootOrderInput"),
+    rootExponent: document.getElementById("rootExponentInput"),
+    constructionOutput: document.getElementById("constructionOutput"),
     pointColor: document.getElementById("pointColorInput"),
     lineColor: document.getElementById("lineColorInput"),
     backgroundColor: document.getElementById("backgroundColorInput"),
@@ -46,6 +49,8 @@
     return {
       radius: numberValue(refs.radius, 4),
       maxPoints: numberValue(refs.maxPoints, Graph.DEFAULTS.maxPoints),
+      rootOrder: numberValue(refs.rootOrder, Graph.DEFAULTS.rootOrder),
+      rootExponent: numberValue(refs.rootExponent, Graph.DEFAULTS.rootExponent),
       pointColor: refs.pointColor.value,
       lineColor: refs.lineColor.value,
       backgroundColor: refs.backgroundColor.value,
@@ -57,7 +62,7 @@
   }
 
   function graphKey(state) {
-    return [state.radius, state.maxPoints]
+    return [state.radius, state.maxPoints, state.rootOrder, state.rootExponent]
       .map((value) => Number(value).toFixed(8))
       .join(":");
   }
@@ -88,6 +93,38 @@
 
   function syncZoomOutput() {
     refs.zoomOutput.textContent = `${Number(refs.zoom.value).toFixed(1)}x`;
+  }
+
+  function syncConstructionOutput() {
+    const rho = Graph.rootOfUnity(numberValue(refs.rootOrder, 6), numberValue(refs.rootExponent, 1));
+    refs.constructionOutput.textContent = `${rho.label}, ${rho.ringLabel}, rho = ${rho.re.toFixed(6)} ${rho.im < 0 ? "-" : "+"} ${Math.abs(rho.im).toFixed(6)}i`;
+  }
+
+  function populateRootOrders() {
+    for (const order of Graph.ROOT_ORDER_PRESETS) {
+      const option = document.createElement("option");
+      option.value = String(order);
+      option.textContent = `zeta_${order}`;
+      option.selected = order === Graph.DEFAULTS.rootOrder;
+      refs.rootOrder.append(option);
+    }
+  }
+
+  function populateRootExponents() {
+    const order = numberValue(refs.rootOrder, Graph.DEFAULTS.rootOrder);
+    const current = numberValue(refs.rootExponent, Graph.DEFAULTS.rootExponent);
+    const exponents = Graph.primitiveExponents(order);
+    refs.rootExponent.replaceChildren();
+
+    for (const exponent of exponents) {
+      const option = document.createElement("option");
+      option.value = String(exponent);
+      option.textContent = String(exponent);
+      option.selected = exponent === current || (!exponents.includes(current) && exponent === exponents[0]);
+      refs.rootExponent.append(option);
+    }
+
+    syncConstructionOutput();
   }
 
   function populatePresets() {
@@ -157,7 +194,7 @@
 
     Graph.renderGraph(refs.canvas, graph, state);
 
-    refs.summary.textContent = `${graph.points.length} points, ${graph.edges.length} unit edges, ${graph.construction.label}`;
+    refs.summary.textContent = `${graph.points.length} points, ${graph.edges.length} unit edges, ${graph.construction.ringLabel}`;
     refs.warning.textContent = graph.warnings.join(" ");
   }
 
@@ -226,9 +263,22 @@
     refs.exportOutput.replaceChildren();
   }
 
+  populateRootOrders();
+  populateRootExponents();
   populatePresets();
+  syncConstructionOutput();
   syncZoomOutput();
   render();
+
+  refs.rootOrder.addEventListener("change", () => {
+    populateRootExponents();
+    scheduleRender();
+  });
+
+  refs.rootExponent.addEventListener("change", () => {
+    syncConstructionOutput();
+    scheduleRender();
+  });
 
   refs.form.addEventListener("input", scheduleRender);
   refs.zoom.addEventListener("input", syncZoomOutput);

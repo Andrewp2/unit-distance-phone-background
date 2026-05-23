@@ -25,6 +25,8 @@ function bruteForceEdges(points, tolerance) {
 
 const graph = Graph.generateGraph({
   radius: 4,
+  rootOrder: 6,
+  rootExponent: 1,
 });
 
 assert.equal(graph.warnings.length, 0);
@@ -32,8 +34,14 @@ assert.equal(graph.points.length, 865);
 assert.equal(graph.edges.length, 3588);
 
 for (const point of graph.points) {
-  const z = Graph.pointFromCoefficients(point.a, point.b, point.c, point.d);
-  const alternate = Graph.alternatePointFromCoefficients(point.a, point.b, point.c, point.d);
+  const z = Graph.pointFromCoefficients(point.a, point.b, point.c, point.d, graph.construction);
+  const alternate = Graph.alternatePointFromCoefficients(
+    point.a,
+    point.b,
+    point.c,
+    point.d,
+    graph.construction,
+  );
   assert.ok(Math.hypot(z.x, z.y) < graph.radius);
   assert.ok(Math.hypot(alternate.x, alternate.y) < graph.radius);
 }
@@ -53,9 +61,23 @@ assert.deepEqual(hashedEdges, expectedEdges, "spatial hash must match brute-forc
 
 const capped = Graph.generateGraph({
   radius: 4,
+  rootOrder: 6,
+  rootExponent: 1,
   maxPoints: 100,
 });
 
 assert.equal(capped.points.length, 100);
 assert.equal(capped.capped, true);
 assert.ok(capped.warnings.some((warning) => warning.includes("Point limit")));
+
+assert.deepEqual(Graph.primitiveExponents(8), [1, 3, 5, 7]);
+
+const zeta8 = Graph.generateGraph({
+  radius: 4,
+  rootOrder: 8,
+  rootExponent: 1,
+});
+
+assert.equal(zeta8.construction.ringLabel, "Z[i, rho] = Z[zeta_8]");
+assert.ok(zeta8.points.length > 0);
+assert.ok(zeta8.edges.length > 0);
